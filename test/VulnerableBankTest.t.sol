@@ -37,6 +37,15 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    function testCannotDepositEther() public {
+        uint256 underMinimumDeposit = 0.5 ether;
+        vm.startPrank(user);
+        vm.deal(user, underMinimumDeposit);
+        vm.expectRevert("Minimum deposit not reached");
+        vulnerableBank.deposit{value: underMinimumDeposit}();
+        vm.stopPrank();
+    }
+
     function testWithdrawEther() public {
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
@@ -55,8 +64,14 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
-    function testBankBalance() public{
+    function testCannotWithdrawEther() public {
+        vm.startPrank(user);
+        vm.expectRevert("No available balance");
+        vulnerableBank.withdraw();
+        vm.stopPrank();
+    }
 
+    function testBankBalance() public {
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
         uint256 userBalanceBefore = address(user).balance;
@@ -74,9 +89,7 @@ contract VulnerableBankTest is Test {
         assert(vulnerableBank.userBalance(user) == 0);
 
         vm.stopPrank();
-
     }
-
 
     function testAttack() public {
         uint256 attackAmount = 1 ether;
@@ -94,12 +107,11 @@ contract VulnerableBankTest is Test {
         attack.getFunds(attackAmount);
         assert(address(attack).balance == amountToDeposit + attackAmount);
         assert(address(vulnerableBank).balance == 0);
-        
+
         vm.stopPrank();
     }
 
-    function testWithdrawStolenFunds() public{
-        
+    function testWithdrawStolenFunds() public {
         uint256 attackAmount = 1 ether;
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
@@ -119,13 +131,11 @@ contract VulnerableBankTest is Test {
         attack.withdrawFunds();
 
         assert(address(attacker).balance == amountToDeposit + attackAmount);
-        
-        vm.stopPrank();
 
+        vm.stopPrank();
     }
 
-      function testCannotWithdrawStolenFundsIfNotOwner() public{
-        
+    function testCannotWithdrawStolenFundsIfNotOwner() public {
         uint256 attackAmount = 1 ether;
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
@@ -148,5 +158,26 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    function testNoBankBalance() public {
+        uint256 attackAmount = 1 ether;
+        vm.startPrank(user);
+        vm.deal(user, amountToDeposit);
+        uint256 userBalanceBefore = address(user).balance;
+        vulnerableBank.deposit{value: amountToDeposit}();
+        uint256 userBalanceAfter = address(user).balance;
+        assert(address(vulnerableBank).balance == amountToDeposit);
+        assert(userBalanceBefore - userBalanceAfter == amountToDeposit);
+        vm.stopPrank();
 
+        vm.deal(address(attack), attackAmount);
+        vm.startPrank(attacker);
+        attack.getFunds(attackAmount);
+        assert(address(attack).balance == amountToDeposit + attackAmount);
+        assert(address(vulnerableBank).balance == 0);
+        vm.stopPrank();
+        vm.startPrank(user);
+        vm.expectRevert("Bank has no funds");
+        vulnerableBank.withdraw();
+        vm.stopPrank();
+    }
 }
