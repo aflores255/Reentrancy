@@ -14,6 +14,9 @@ contract VulnerableBankTest is Test {
     address user = vm.addr(2);
     uint256 amountToDeposit = 5 ether;
 
+    /**
+     * @notice Deploys the contracts before each test
+     */
     function setUp() public {
         vulnerableBank = new VulnerableBank();
         vm.startPrank(attacker);
@@ -21,10 +24,16 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Ensures contracts are deployed correctly
+     */
     function testInitialDeploy() public view {
         assert(address(vulnerableBank) != address(0) && address(attack) != address(0));
     }
 
+    /**
+     * @notice Verifies that a valid deposit updates the user's balance and the contract's balance correctly
+     */
     function testDepositEther() public {
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
@@ -37,6 +46,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Ensures that a deposit below the minimum required amount is rejected
+     */
     function testCannotDepositEther() public {
         uint256 underMinimumDeposit = 0.5 ether;
         vm.startPrank(user);
@@ -46,6 +58,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Tests that a valid user can withdraw their entire balance
+     */
     function testWithdrawEther() public {
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
@@ -64,6 +79,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Ensures users without funds cannot withdraw
+     */
     function testCannotWithdrawEther() public {
         vm.startPrank(user);
         vm.expectRevert("No available balance");
@@ -71,6 +89,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Verifies contract balance via totalBalance() before and after withdrawal
+     */
     function testBankBalance() public {
         vm.startPrank(user);
         vm.deal(user, amountToDeposit);
@@ -91,6 +112,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Simulates a reentrancy attack using the Attack contract
+     */
     function testAttack() public {
         uint256 attackAmount = 1 ether;
         vm.startPrank(user);
@@ -111,6 +135,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Allows attacker to drain stolen funds from the Attack contract
+     */
     function testWithdrawStolenFunds() public {
         uint256 attackAmount = 1 ether;
         vm.startPrank(user);
@@ -135,6 +162,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Ensures that only the owner of the Attack contract can withdraw stolen funds
+     */
     function testCannotWithdrawStolenFundsIfNotOwner() public {
         uint256 attackAmount = 1 ether;
         vm.startPrank(user);
@@ -158,6 +188,9 @@ contract VulnerableBankTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @notice Ensures that if the bank is empty, any withdraw attempt is reverted
+     */
     function testNoBankBalance() public {
         uint256 attackAmount = 1 ether;
         vm.startPrank(user);
