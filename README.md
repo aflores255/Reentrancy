@@ -1,4 +1,4 @@
-# 💥 Reentrancy
+# 💥 Reentrancy - Simulating and Exploiting a Vulnerable Smart Contract
 
 ## 📌 Description
 
@@ -25,39 +25,52 @@ Built with **Solidity 0.8.28**, and tested with **Foundry**.
 
 ---
 
-## 🛠️ Contracts
+## 🔍 How It Works
 
-### ⚙️ VulnerableBank
+This project consists of two core smart contracts that simulate a typical reentrancy scenario:
 
-```solidity
-function withdraw() public {
-    require(userBalance[msg.sender] >= 1, "No available balance");
-    require(address(this).balance > 0, "Bank has no funds");
+### 🧱 Smart Contracts Overview
 
-    (bool success,) = msg.sender.call{value: userBalance[msg.sender]}("");
-    require(success, "Tx failed");
-
-    userBalance[msg.sender] = 0; // ❌ Vulnerability: State update happens after external call
-}
-```
-
-- Implements a **classic reentrancy vulnerability** by transferring funds before updating user balance.
-- Exposes `deposit`, `withdraw`, and `totalBalance` functions.
+| **Contract**        | **Purpose**                                                                                                                                              |
+|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [📄 `VulnerableBank`](https://github.com/aflores255/Reentrancy/blob/master/src/VulnerableBank.sol) | Accepts user deposits and enables withdrawals — but is vulnerable due to incorrect order of state updates and external calls.            |
+| [⚔️ `Attack`](https://github.com/aflores255/Reentrancy/blob/master/src/Attack.sol)                   | A malicious contract that exploits the reentrancy bug in `VulnerableBank` by recursively calling `withdraw()` before the balance is reset. |
 
 ---
 
-### ⚔️ Attack Contract
+### 🔁 Flow Diagram
 
-```solidity
-receive() external payable {
-    if (address(vulnerableBank).balance >= 1 ether) {
-        vulnerableBank.withdraw();
-    }
-}
-```
++----------------+          deposit()           +------------------+
+|    Attacker    | --------------------------> |  VulnerableBank  |
++----------------+                             +------------------+
+       |                                               |
+       |          withdraw()                           |
+       | --------------------------------------------> |
+       |                                               |
+       |    send Ether to Attacker (external call)     |
+       | <-------------------------------------------- |
+       |                                               |
+       |    fallback() triggered in Attacker           |
+       | --------------------------------------------> |
+       |                                               |
+       |    re-enter withdraw()                        |
+       | --------------------------------------------> |
+       |                                               |
+       |    repeat until VulnerableBank is drained     |
+       | <-------------------------------------------- |
+       |                                               |
++----------------+                             +------------------+
+|    Attacker    |                             |  VulnerableBank  |
++----------------+                             +------------------+
 
-- Attacker recursively **calls `withdraw()` via fallback function** before the balance is set to 0.
-- Drains funds from the vulnerable contract in a **reentrant loop**.
+---
+
+### 🔑 Summary
+
+- The **`VulnerableBank`** lets users deposit and withdraw Ether.
+- Its **flawed `withdraw()` logic** calls `msg.sender.call{value: ...}` before updating internal balances.
+- The **`Attack` contract** receives ETH, and during the fallback (`receive()`), re-enters the `withdraw()` function before the state is updated, draining funds in a loop.
+- The attacker finally calls `withdrawStolenFunds()` to move the stolen ETH out of their own contract.
 
 ---
 
@@ -80,6 +93,14 @@ The test suite validates both normal behavior and the exploit.
 | `testCannotWithdrawStolenFundsIfNotOwner` | Ensures only the attacker owner can withdraw stolen ETH.        |
 | `testNoBankBalance`               | Validates proper reverts when the bank has no ETH to withdraw.          |
 
+### 📊 Coverage Report
+
+| File                    | % Lines         | % Statements     | % Branches      | % Functions     |
+|-------------------------|------------------|-------------------|------------------|------------------|
+| `src/Attack.sol ` | 100.00% (11/11) | 100.00% (8/8) | 66.67% (2/3) | 100.00% (4/4)   |
+| `src/VulnerableBank.sol ` | 100.00% (11/11) | 100.00% (9/9) | 87.50% (7/8) | 100.00% (3/3)   |
+
+> 🔍 **Note**: Coverage is not 100% for branches due to one specific edge case — the branch that reverts with `"Tx Failed"` on failed Ether transfers. Simulating that revert requires a test using a contract that intentionally rejects Ether. 
 ---
 
 ## 🔗 Dependencies
