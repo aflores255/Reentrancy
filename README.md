@@ -40,29 +40,7 @@ This project consists of two core smart contracts that simulate a typical reentr
 
 ### 🔁 Flow Diagram
 
-+----------------+          deposit()           +------------------+
-|    Attacker    | --------------------------> |  VulnerableBank  |
-+----------------+                             +------------------+
-       |                                               |
-       |          withdraw()                           |
-       | --------------------------------------------> |
-       |                                               |
-       |    send Ether to Attacker (external call)     |
-       | <-------------------------------------------- |
-       |                                               |
-       |    fallback() triggered in Attacker           |
-       | --------------------------------------------> |
-       |                                               |
-       |    re-enter withdraw()                        |
-       | --------------------------------------------> |
-       |                                               |
-       |    repeat until VulnerableBank is drained     |
-       | <-------------------------------------------- |
-       |                                               |
-+----------------+                             +------------------+
-|    Attacker    |                             |  VulnerableBank  |
-+----------------+                             +------------------+
-
+![Reentrancy Diagram](assets/reentrancy-diagram.jpg)
 ---
 
 ### 🔑 Summary
